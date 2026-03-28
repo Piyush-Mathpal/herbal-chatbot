@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Herbal Chatbot</title>
+
+<style>
+
+body{margin:0;font-family:sans-serif;}
+.dots::after{
+content: "";
+animation: dots 1.5s steps(3, end) infinite;
+}
+
+@keyframes dots{
+0% {content: "";}
+33% {content: ".";}
+66% {content: "..";}
+100% {content: "...";}
+}
+
+#userInput{
+width:100%;
+border:none;
+border-top:1px solid #ccc;
+padding:10px;
+outline:none;
+font-size:14px;
+}
+
+/* FLOAT BUTTON */
+#chat-toggle{
+position:fixed;
+bottom:20px;
+right:20px;
+background:#2e7d32;
+color:white;
+width:60px;
+height:60px;
+border-radius:50%;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:28px;
+cursor:pointer;
+box-shadow:0 4px 12px rgba(0,0,0,0.3);
+z-index:9999;
+}
+
+/* CHAT BOX */
+#chatbox{
+position:fixed;
+bottom:90px;
+right:20px;
+width:320px;
+height:420px;
+background:white;
+border-radius:15px;
+box-shadow:0 5px 20px rgba(0,0,0,0.3);
+display:none;
+flex-direction:column;
+overflow:hidden;
+}
+
+/* HEADER */
+#chat-header{
+background:#1b5e20;
+color:white;
+padding:12px;
+font-weight:bold;
+}
+
+/* BODY */
+#chat-body{
+flex:1;
+padding:10px;
+overflow-y:auto;
+background:#f4fff4;
+}
+
+/* MESSAGE */
+.bot, .user{
+margin:8px 0;
+padding:8px 10px;
+border-radius:10px;
+max-width:80%;
+}
+
+.bot{
+background:#e8f5e9;
+}
+
+.user{
+background:#c8e6c9;
+margin-left:auto;
+}
+
+/* BUTTON OPTIONS */
+.option{
+display:inline-block;
+margin:5px;
+padding:6px 10px;
+border:1px solid #2e7d32;
+border-radius:20px;
+cursor:pointer;
+font-size:13px;
+}
+
+.option:hover{
+background:#2e7d32;
+color:white;
+}
+</style>
+</head>
+
+<body>
+
+<!-- FLOAT BUTTON -->
+<div id="chat-toggle">💬</div>
+
+<!-- CHATBOX -->
+<div id="chatbox">
+  <div id="chat-header">🌿 Herbal Bot (Online)</div>
+  <div id="chat-body"></div>
+  <input type="text" id="userInput" placeholder="Ask anything..." />
+</div>
+
+<script>
+  function removeLoading(id){
+  const el = document.getElementById(id);
+  if(el) el.remove();
+}
+  function showLoading(){
+  const id = "loading-" + Date.now();
+
+  chat.innerHTML += `<div class="bot" id="${id}">Thinking<span class="dots"></span></div>`;
+  chat.scrollTop = chat.scrollHeight;
+
+  return id;
+}
+async function getAIResponse(message){
+  try{
+    const response = await fetch("http://localhost:3001/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message })
+    });
+
+    const data = await response.json();
+
+    console.log("API RESPONSE:", data); // 👈 ADD THIS
+
+    if (data && data.reply) {
+      return data.reply;
+    } else {
+      return "⚠️ AI not responding."; 
+    }
+
+  } catch(error){
+    console.error(error);
+    return "❌ Server error. Is backend running?";
+  }
+}
+
+// 🌿 YOUR DATA (shortened example, you can paste full JSON)
+const plants = [
+  {commonName:"Tulsi", uses:"Boosts immunity"},
+  {commonName:"Neem", uses:"Skin treatment"},
+  {commonName:"Aloe Vera", uses:"Skin care"},
+  {commonName:"Ashwagandha", uses:"Reduces stress"},
+  {commonName:"Mint", uses:"Digestion"},
+  {commonName:"Amla", uses:"Boosts immunity"},
+  {commonName:"Giloy", uses:"Boosts immunity"}
+];
+
+// OPEN / CLOSE
+const toggle = document.getElementById("chat-toggle");
+const box = document.getElementById("chatbox");
+const chat = document.getElementById("chat-body");
+
+toggle.onclick = () => {
+ box.style.display = box.style.display === "flex" ? "none" : "flex";
+
+  if(chat.innerHTML === ""){
+    startChat();
+  }
+};
+
+// START CHAT
+function startChat(){
+  botMessage("Hi 👋 I am your Herbal Assistant.<br>I can suggest plants based on your needs.");
+
+  
+}
+
+// BOT MESSAGE
+function botMessage(text){
+  chat.innerHTML += `<div class="bot">${text}</div>`;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// USER MESSAGE
+function userMessage(text){
+  chat.innerHTML += `<div class="user">${text}</div>`;
+}
+
+// OPTIONS
+function showOptions(options){
+  let html = "";
+  options.forEach(opt => {
+    html += `<span class="option" onclick="selectOption('${opt}')">${opt}</span>`;
+  });
+  chat.innerHTML += `<div class="bot">${html}</div>`;
+}
+
+// HANDLE OPTION
+async function selectOption(choice){
+
+  userMessage(choice);
+
+  let result = plants.filter(p =>
+    p.uses.toLowerCase().includes(choice.toLowerCase())
+  );
+
+  if(result.length > 0){
+
+    botMessage("🌿 These plants can help:");
+
+    result.forEach(p=>{
+      botMessage(`👉 <b>${p.commonName}</b><br>${p.uses}`);
+    });
+
+  } else {
+
+let loadingId = showLoading();
+
+const reply = await getAIResponse(choice);
+
+removeLoading(loadingId);
+botMessage(reply);
+  }
+
+  setTimeout(()=>{
+    botMessage("Try another category:");
+    showOptions(["Immunity","Skin","Digestion","Stress"]);
+  },1000);
+}
+
+const inputBox = document.getElementById("userInput");
+
+inputBox.addEventListener("keypress", async function(e){
+  if(e.key === "Enter"){
+
+    let input = this.value.trim();
+    if(input === "") return;
+
+    userMessage(input);
+    this.value = "";
+
+    let found = plants.find(p =>
+      p.commonName.toLowerCase().includes(input.toLowerCase())
+    );
+
+    if(found){
+      botMessage(`🌿 <b>${found.commonName}</b><br>${found.uses}`);
+    } else {
+
+      let loadingId = showLoading();
+
+      const reply = await getAIResponse(input);
+
+      removeLoading(loadingId);
+      botMessage(reply);
+    }
+  }
+});
+</script>
+
+
+
+</body>
+</html>
